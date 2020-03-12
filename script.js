@@ -26,8 +26,7 @@ function rotateAngleInit() {
 }
 
 //Рендер барабана(кол-во ячеек)
-//передавая ниже в функцию переменную с одинаковым названием, используется уже локальная переменная
-//Вообще не знаю зачем в эту функцию что-то передавать, если они глобальные, но мне нравится оранжевый
+//UPD.Вообще не знаю зачем в эту функцию что-то передавать, если они доступны внутри этого файла
 function RenderSlots(reels, slots_per_reel, slotAngle) {
 	let panelHeight = $(ring1).height();
 	console.log("==========RenderSlots Debug============");
@@ -106,13 +105,10 @@ function EditReel(elem) {
 //Прокрутка барабана на 1 слот slotAngle * 1 ()
 function SlotSpin(elem) {
 	let currentId = elem.closest('.control-panel').id[2]; 
-	//вынести поиск в отдельную функцию, чтобы можно было передать любой элемент
-	//И переписать всю прокрутку, чтобы убрать костыли
-	//Поиск должен считывать нужное кол-во цифр в зависимости от id.Length(). Сейчас читает одну
 	currentId = Number(currentId);
 	rotateAngle[currentId - 1] -= slotAngle; 
 
-	//Почему вообще я обозначил слоты с единицы, боже. А теперь лень переписывать
+	//Почему вообще я обозначил слоты с единицы, боже
 	let transform = 'rotateX(' + rotateAngle[currentId - 1] + 'deg)';
 	$('#ring' + currentId).css('transition', 'transform 2s ease-in-out');
 	$('#ring' + currentId).css('transform', transform);
@@ -150,21 +146,8 @@ function MachineSpin() {
 
 
 //===========================SERVER=================================//
-function ParseIt() {
-	let Matrix = [];
-	for (let i = 1; i <= reels; i++) {
-		let currentArray = []; //Если вынести за for(i), то ссылки в матрице будут указывать на последний массив
-		for (let j = 1; j <= slots_per_reel; j++) {
-		currentArray[j - 1] = $('#' + i + '-' + j).html(); 
-		}
-		Matrix[i - 1] = currentArray;
-	}
-	return Matrix;
-}
 
-//А вот это точно временно, не убивайте. Пусть будет 8 барабанов по 8 слотов и всё будет хорошо
-let FirstSave = true;
-//Сформируем нужный JSON и отправим
+//Сформируем нужную матрицу и отправим
 function SaveIt(Matrix) {
 	let MyReel = {};
 	for (let i = 0; i < reels; i++) {
@@ -181,28 +164,26 @@ function SaveIt(Matrix) {
 			field6: Matrix[i][6],
 			field7: Matrix[i][7]
 		};
-		//Передаём на сервер
-		if (FirstSave == true) {
-			let username1 = $("input#username").val();
-			let password1 = $("input#password").val();
-			$.ajax({
-				url: 'http://pazhur.herokuapp.com/api/reels/',
-				method: 'POST',
-				contentType: 'application/json',
-				data: JSON.stringify(MyReel),
-				beforeSend: function(xhr) {
-		 		xhr.setRequestHeader("Authorization", "Basic " + btoa(username1 + ":" + password1));
-		 		}
-			})
-			.done(function() {
-				console.log('POST OK');
-			})
-			.fail(function () {
-				console.log('POST NE OK')
-			});
-			FirstSave = false;
-		}
-		else {
+		//Авторизируемся и передаём н сервер
+			// let username1 = $("input#username").val();
+			// let password1 = $("input#password").val();
+			// $.ajax({
+			// 	url: 'http://pazhur.herokuapp.com/api/reels/',
+			// 	method: 'POST',
+			// 	contentType: 'application/json',
+			// 	data: JSON.stringify(MyReel),
+			// 	beforeSend: function(xhr) {
+		 // 		xhr.setRequestHeader("Authorization", "Basic " + btoa(username1 + ":" + password1));
+		 // 		}
+			// })
+			// .done(function() {
+			// 	console.log('POST OK');
+			// })
+			// .fail(function () {
+			// 	console.log('POST NE OK')
+			// });
+
+			//отправляем на сервер
 			$.ajax({
 				url: 'http://pazhur.herokuapp.com/api/reels/',
 				method: 'PUT',
@@ -215,7 +196,7 @@ function SaveIt(Matrix) {
 			.fail(function () {
 				console.log('PUT NE OK')
 			});
-		}
+		
 	}
 }
 
@@ -279,6 +260,19 @@ function getReelSet2(count) {
 	return typeof ReelSet === "string" ? JSON.parse(ReelSet) : ReelSet;
 }
 
+function ParseIt() {
+	let Matrix = [];
+	for (let i = 1; i <= reels; i++) {
+		let currentArray = []; //Если вынести за for(i), то ссылки в матрице будут указывать на последний массив
+		for (let j = 1; j <= slots_per_reel; j++) {
+		currentArray[j - 1] = $('#' + i + '-' + j).html(); 
+		}
+		Matrix[i - 1] = currentArray;
+	}
+	return Matrix;
+}
+
+//UPD.Я не помню зачем, но мне понадобилась бы своя матрица значений, поэтому вот бесполезный кусок кода:
 function UnparseIt(IDs) {
 	let Temp = [];
 	let Matrix = [];
@@ -312,6 +306,7 @@ function UnparseIt(IDs) {
 	}
 	return Matrix;
 }
+//|
 
 function SetValues(Matrix) {	
 	for (let i = 1; i <= 8; i++) {
@@ -326,37 +321,10 @@ function SetValues(Matrix) {
 
 
 
-function BaseAuth(user, password) { //Зачем я её писал, если есть btoa()
+function BaseAuth(user, password) { //Оказывается есть btoa()
 	let tok = user + ':' + password;
 	let hash = Base64.encode(tok);
 	return "Basic " + hash;
-}
-
-//Тут я пытался пробовать всё, что гуглил, поэтому сейчас здесь неработающая каша
-function GoAuth() {
-	let username1 = $("input#username").val(); //работает
-	let password1 = $("input#password").val();
-	$.ajax({
-		type: "GET",
-		url: "http://pazhur.herokuapp.com/",
-		dataType: 'json',
-		//async: false,
-		 beforeSend: function(xhr) {
-		 xhr.setRequestHeader("Authorization", "Basic " + btoa(username1 + ":" + password1));
-		 },
-		data: "Authorization: Basic " + btoa(username1 + ':' + password1),
-		username: btoa(username1),
-		password: btoa(password1),
-		success: function() {
-			alert('It Works!');
-		}
-	})
-	.done(function() {
-		alert('AUTH OK');
-	})
-	.fail(function() {
-		alert('AUTH NE OK');
-	});
 }
 
 
